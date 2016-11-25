@@ -80,4 +80,19 @@ public class Intent {
      */
     public static final String ACTION_INITIALIZE_LIVEDISPLAY =
             "evervolv.intent.action.INITIALIZE_LIVEDISPLAY";
+
+    /**
+     * Broadcast action: lid state changed
+     * @hide
+     */
+    public static final String ACTION_LID_STATE_CHANGED =
+            "evervolv.intent.action.LID_STATE_CHANGED";
+
+    /**
+     * This field is part of the intent {@link #ACTION_LID_STATE_CHANGED}.
+     * Intent extra field for the state of lid/cover
+     * @hide
+     */
+    public static final String EXTRA_LID_STATE =
+            "evervolv.intent.extra.LID_STATE";
 }
