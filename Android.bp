@@ -70,15 +70,6 @@ android_app {
     export_package_resources: true,
 }
 
-java_library {
-    name: "com.evervolv.platform.resources",
-    srcs: [
-        // For the generated R.java and Manifest.java
-        ":com.evervolv.platform-res{.aapt.srcjar}",
-    ],
-    sdk_version: "core_current",
-}
-
 // READ ME: ########################################################
 //
 // When updating this list of aidl files, consider if that aidl is
@@ -154,12 +145,13 @@ filegroup {
 
 java_library {
     name: "com.evervolv.platform.internal",
-    srcs: [":platform-sdk-core-sources"],
+    srcs: [
+        ":platform-sdk-core-sources",
+        // For the generated R.java and Manifest.java
+        ":com.evervolv.platform-res{.aapt.srcjar}",
+    ],
     aidl: {
         export_include_dirs: ["core/java"],
     },
     required: ["services"],
-    static_libs: [
-        "com.evervolv.platform.resources",
-    ],
 }
