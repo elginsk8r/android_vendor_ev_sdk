@@ -32,8 +32,6 @@ import android.util.Slog;
 import android.view.animation.LinearInterpolator;
 
 import com.android.internal.util.ArrayUtils;
-import com.android.server.display.color.DisplayTransformManager;
-import com.android.server.LocalServices;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -44,38 +42,18 @@ import java.util.NoSuchElementException;
 import evervolv.hardware.LiveDisplayManager;
 import evervolv.provider.EVSettings;
 
-import vendor.lineage.livedisplay.V2_0.IAdaptiveBacklight;
-import vendor.lineage.livedisplay.V2_0.IAutoContrast;
-import vendor.lineage.livedisplay.V2_0.IColorEnhancement;
 import vendor.lineage.livedisplay.V2_0.IDisplayColorCalibration;
-import vendor.lineage.livedisplay.V2_0.IReadingEnhancement;
-import vendor.lineage.livedisplay.V2_1.IAntiFlicker;
 
 import static com.android.server.display.color.DisplayTransformManager.LEVEL_COLOR_MATRIX_NIGHT_DISPLAY;
-import static com.android.server.display.color.DisplayTransformManager.LEVEL_COLOR_MATRIX_GRAYSCALE;
 
 public class DisplayHardwareController extends LiveDisplayFeature {
 
     private static final String TAG = "DisplayHardwareController";
 
-    private IAdaptiveBacklight mAdaptiveBacklight = null;
-    private IAntiFlicker mAntiFlicker = null;
-    private IAutoContrast mAutoContrast = null;
-    private IColorEnhancement mColorEnhancement = null;
     private IDisplayColorCalibration mDisplayColorCalibration = null;
-    private IReadingEnhancement mReadingEnhancement = null;
 
     // hardware capabilities
-    private final boolean mUseAutoContrast;
     private final boolean mUseColorAdjustment;
-    private final boolean mUseColorEnhancement;
-    private final boolean mUseCABC;
-    private final boolean mUseReaderMode;
-
-    // default values
-    private final boolean mDefaultAutoContrast;
-    private final boolean mDefaultColorEnhancement;
-    private final boolean mDefaultCABC;
 
     // color adjustment holders
     private final float[] mAdditionalAdjustment = getDefaultAdjustment();
@@ -86,40 +64,11 @@ public class DisplayHardwareController extends LiveDisplayFeature {
     private final int mMaxColor;
 
     // settings uris
-    private static final Uri DISPLAY_AUTO_CONTRAST =
-            EVSettings.System.getUriFor(EVSettings.System.DISPLAY_AUTO_CONTRAST);
     private static final Uri DISPLAY_COLOR_ADJUSTMENT =
             EVSettings.System.getUriFor(EVSettings.System.DISPLAY_COLOR_ADJUSTMENT);
-    private static final Uri DISPLAY_COLOR_ENHANCE =
-            EVSettings.System.getUriFor(EVSettings.System.DISPLAY_COLOR_ENHANCE);
-    private static final Uri DISPLAY_CABC =
-            EVSettings.System.getUriFor(EVSettings.System.DISPLAY_CABC);
-    private static final Uri DISPLAY_READING_MODE =
-            EVSettings.System.getUriFor(EVSettings.System.DISPLAY_READING_MODE);
 
-    private final DisplayTransformManager mTransformManager;
-
-    /**
-     * Matrix and offset used for converting color to grayscale.
-     * Copied from com.android.server.accessibility.DisplayAdjustmentUtils.MATRIX_GRAYSCALE
-     */
-    private final float[] MATRIX_GRAYSCALE = {
-            .2126f, .2126f, .2126f, 0,
-            .7152f, .7152f, .7152f, 0,
-            .0722f, .0722f, .0722f, 0,
-                 0,      0,      0, 1
-    };
-
-    /** Full color matrix and offset */
-    private final float[] MATRIX_NORMAL = {
-            1, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1
-    };
 
     private static final int LEVEL_COLOR_MATRIX_CALIB = LEVEL_COLOR_MATRIX_NIGHT_DISPLAY + 1;
-    private static final int LEVEL_COLOR_MATRIX_READING = LEVEL_COLOR_MATRIX_GRAYSCALE + 1;
 
     private static final int COLOR_CALIBRATION_MIN_INDEX = 3;
     private static final int COLOR_CALIBRATION_MAX_INDEX = 4;
@@ -132,54 +81,12 @@ public class DisplayHardwareController extends LiveDisplayFeature {
     public DisplayHardwareController(Context context, Handler handler) {
         super(context, handler);
 
-        final boolean acceleratedTransform =
-                ColorDisplayManager.isColorTransformAccelerated(mContext);
-        mTransformManager = LocalServices.getService(DisplayTransformManager.class);
-
-        try {
-            mAdaptiveBacklight = IAdaptiveBacklight.getService();
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        mUseCABC = mAdaptiveBacklight != null;
-        mDefaultCABC = mContext.getResources().getBoolean(
-                com.evervolv.platform.internal.R.bool.config_defaultCABC);
-
-        try {
-            mColorEnhancement = IColorEnhancement.getService();
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        mUseColorEnhancement = mColorEnhancement != null;
-        mDefaultColorEnhancement = mContext.getResources().getBoolean(
-                com.evervolv.platform.internal.R.bool.config_defaultColorEnhancement);
-
-        try {
-            mAutoContrast = IAutoContrast.getService();
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        mUseAutoContrast = mAutoContrast != null;
-        mDefaultAutoContrast = mContext.getResources().getBoolean(
-                com.evervolv.platform.internal.R.bool.config_defaultAutoContrast);
-
         try {
             mDisplayColorCalibration = IDisplayColorCalibration.getService();
         } catch (NoSuchElementException | RemoteException e) {
         }
-        boolean useColorAdjustment = mDisplayColorCalibration != null;
-        if (!useColorAdjustment) {
-            useColorAdjustment = acceleratedTransform && mTransformManager != null;
-        }
-        mUseColorAdjustment = useColorAdjustment;
-
-        try {
-            mReadingEnhancement = IReadingEnhancement.getService();
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-        boolean useReaderMode = mReadingEnhancement != null;
-        if (!useReaderMode) {
-            useReaderMode = acceleratedTransform && mTransformManager != null;
-        }
-        mUseReaderMode = useReaderMode;
-
+        mUseColorAdjustment = mDisplayColorCalibration != null
+            || (mAcceleratedTransform && mTransformManager != null);
 
         if (mUseColorAdjustment) {
             mMaxColor = getDisplayColorCalibrationMax();
@@ -187,27 +94,14 @@ public class DisplayHardwareController extends LiveDisplayFeature {
         } else {
             mMaxColor = 0;
         }
-
     }
 
     @Override
     public void onStart() {
         final ArrayList<Uri> settings = new ArrayList<Uri>();
 
-        if (mUseCABC) {
-            settings.add(DISPLAY_CABC);
-        }
-        if (mUseColorEnhancement) {
-            settings.add(DISPLAY_COLOR_ENHANCE);
-        }
-        if (mUseAutoContrast) {
-            settings.add(DISPLAY_AUTO_CONTRAST);
-        }
         if (mUseColorAdjustment) {
             settings.add(DISPLAY_COLOR_ADJUSTMENT);
-        }
-        if (mUseReaderMode) {
-            settings.add(DISPLAY_READING_MODE);
         }
 
         if (settings.size() == 0) {
@@ -219,58 +113,22 @@ public class DisplayHardwareController extends LiveDisplayFeature {
 
     @Override
     public boolean getCapabilities(final BitSet caps) {
-        if (mUseAutoContrast) {
-            caps.set(LiveDisplayManager.FEATURE_AUTO_CONTRAST);
-        }
-        if (mUseColorEnhancement) {
-            caps.set(LiveDisplayManager.FEATURE_COLOR_ENHANCEMENT);
-        }
-        if (mUseCABC) {
-            caps.set(LiveDisplayManager.FEATURE_CABC);
-        }
         if (mUseColorAdjustment) {
             caps.set(LiveDisplayManager.FEATURE_COLOR_ADJUSTMENT);
         }
-        if (mUseReaderMode) {
-            caps.set(LiveDisplayManager.FEATURE_READING_ENHANCEMENT);
-        }
-        return mUseAutoContrast || mUseColorEnhancement || mUseCABC || mUseColorAdjustment ||
-            mUseReaderMode;
+        return mUseColorAdjustment;
     }
 
     @Override
     public synchronized void onSettingsChanged(Uri uri) {
-        if (uri == null || uri.equals(DISPLAY_CABC)) {
-            updateCABCMode();
-        }
-        if (uri == null || uri.equals(DISPLAY_AUTO_CONTRAST)) {
-            updateAutoContrast();
-        }
-        if (uri == null || uri.equals(DISPLAY_COLOR_ENHANCE)) {
-            updateColorEnhancement();
-        }
         if (uri == null || uri.equals(DISPLAY_COLOR_ADJUSTMENT)) {
             copyColors(getColorAdjustment(), mColorAdjustment);
             updateColorAdjustment();
         }
-        if (uri == null || uri.equals(DISPLAY_READING_MODE)) {
-            updateReadingMode();
-        }
-    }
-
-    private synchronized void updateHardware() {
-        if (isScreenOn()) {
-            updateCABCMode();
-            updateAutoContrast();
-            updateColorEnhancement();
-            updateReadingMode();
-        }
     }
 
     @Override
-    protected void onUpdate() {
-        updateHardware();
-    }
+    protected void onUpdate() { }
 
     @Override
     protected synchronized void onScreenStateChanged() {
@@ -287,82 +145,12 @@ public class DisplayHardwareController extends LiveDisplayFeature {
     public void dump(PrintWriter pw) {
         pw.println();
         pw.println("DisplayHardwareController Configuration:");
-        pw.println("  mUseAutoContrast=" + mUseAutoContrast);
         pw.println("  mUseColorAdjustment=" + mUseColorAdjustment);
-        pw.println("  mUseColorEnhancement="  + mUseColorEnhancement);
-        pw.println("  mUseCABC=" + mUseCABC);
-        pw.println("  mUseReaderMode=" + mUseReaderMode);
         pw.println();
         pw.println("  DisplayHardwareController State:");
-        pw.println("    mAutoContrast=" + isAutoContrastEnabled());
-        pw.println("    mColorEnhancement=" + isColorEnhancementEnabled());
-        pw.println("    mCABC=" + isCABCEnabled());
         pw.println("    mColorAdjustment=" + Arrays.toString(mColorAdjustment));
         pw.println("    mAdditionalAdjustment=" + Arrays.toString(mAdditionalAdjustment));
         pw.println("    hardware setting=" + Arrays.toString(getDisplayColorCalibration()));
-    }
-
-    /**
-     * Automatic contrast optimization
-     */
-    private void updateAutoContrast() {
-        if (!mUseAutoContrast) {
-            return;
-        }
-
-        try {
-            mAutoContrast.setEnabled(isAutoContrastEnabled());
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-    }
-
-    /**
-     * Color enhancement is optional
-     */
-    private void updateColorEnhancement() {
-        if (!mUseColorEnhancement) {
-            return;
-        }
-
-        try {
-            mColorEnhancement.setEnabled(
-                    (!isLowPowerMode() || mDefaultColorEnhancement) && isColorEnhancementEnabled());
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-    }
-
-    /**
-     * Adaptive backlight / low power mode. Turn it off when under very bright light.
-     */
-    private void updateCABCMode() {
-        if (!mUseCABC) {
-            return;
-        }
-
-        try {
-            mAdaptiveBacklight.setEnabled(isCABCEnabled());
-        } catch (NoSuchElementException | RemoteException e) {
-        }
-    }
-
-    /**
-     * Reading enhancement is optional
-     */
-    private void updateReadingMode() {
-        if (!mUseReaderMode) {
-            return;
-        }
-
-        if (mReadingEnhancement != null) {
-            try {
-                mReadingEnhancement.setEnabled(isReadingModeEnabled());
-            } catch (NoSuchElementException | RemoteException e) {
-            }
-        } else {
-            mTransformManager.setColorMatrix(LEVEL_COLOR_MATRIX_READING,
-                    isReadingModeEnabled() ? MATRIX_GRAYSCALE : MATRIX_NORMAL);
-        }
-
     }
 
     private synchronized void updateColorAdjustment() {
@@ -524,71 +312,6 @@ public class DisplayHardwareController extends LiveDisplayFeature {
         return false;
     }
 
-    boolean getDefaultCABC() {
-        return mDefaultCABC;
-    }
-
-    boolean getDefaultAutoContrast() {
-        return mDefaultAutoContrast;
-    }
-
-    boolean getDefaultColorEnhancement() {
-        return mDefaultColorEnhancement;
-    }
-
-    boolean isAutoContrastEnabled() {
-        return mUseAutoContrast &&
-                getBoolean(EVSettings.System.DISPLAY_AUTO_CONTRAST, mDefaultAutoContrast);
-    }
-
-    boolean setAutoContrastEnabled(boolean enabled) {
-        if (!mUseAutoContrast) {
-            return false;
-        }
-        putBoolean(EVSettings.System.DISPLAY_AUTO_CONTRAST, enabled);
-        return true;
-    }
-
-    boolean isCABCEnabled() {
-        return mUseCABC &&
-                getBoolean(EVSettings.System.DISPLAY_CABC, mDefaultCABC);
-    }
-
-    boolean setCABCEnabled(boolean enabled) {
-        if (!mUseCABC) {
-            return false;
-        }
-        putBoolean(EVSettings.System.DISPLAY_CABC, enabled);
-        return true;
-    }
-
-    boolean isColorEnhancementEnabled() {
-        return mUseColorEnhancement &&
-                getBoolean(EVSettings.System.DISPLAY_COLOR_ENHANCE,
-                mDefaultColorEnhancement);
-    }
-
-    boolean setColorEnhancementEnabled(boolean enabled) {
-        if (!mUseColorEnhancement) {
-            return false;
-        }
-        putBoolean(EVSettings.System.DISPLAY_COLOR_ENHANCE, enabled);
-        return true;
-    }
-
-    boolean isReadingModeEnabled() {
-        return mUseReaderMode &&
-                getBoolean(EVSettings.System.DISPLAY_READING_MODE, false);
-    }
-
-    boolean setReadingModeEnabled(boolean enabled) {
-        if (!mUseReaderMode) {
-            return false;
-        }
-        putBoolean(EVSettings.System.DISPLAY_READING_MODE, enabled);
-        return true;
-    }
-
     float[] getColorAdjustment() {
         if (!mUseColorAdjustment) {
             return getDefaultAdjustment();
@@ -651,7 +374,7 @@ public class DisplayHardwareController extends LiveDisplayFeature {
     }
 
     private int[] getDisplayColorCalibrationArray() {
-        if (mUseColorAdjustment) {
+        if (!mUseColorAdjustment) {
             return null;
         }
 
@@ -659,29 +382,26 @@ public class DisplayHardwareController extends LiveDisplayFeature {
             try {
                 return ArrayUtils.convertToIntArray(mDisplayColorCalibration.getCalibration());
             } catch (RemoteException e) {
+                return null;
             }
         }
 
-        int[] rgb = mCurColors;
-        if (rgb == null || rgb.length < CALIBRATION_MIN) {
+        if (mCurColors == null || mCurColors.length < CALIBRATION_MIN) {
             Slog.e(TAG, "Invalid color calibration string");
             return null;
         }
 
         int[] currentCalibration = new int[CALIBRATION_MAX + 1];
         for (int i = 0; i < COLOR_CALIBRATION_MIN_INDEX; i++) {
-            currentCalibration[i] = rgb[i];
+            currentCalibration[i] = mCurColors[i];
         }
         currentCalibration[COLOR_CALIBRATION_MIN_INDEX] = CALIBRATION_MIN;
         currentCalibration[COLOR_CALIBRATION_MAX_INDEX] = CALIBRATION_MAX;
+
         return currentCalibration;
     }
 
     int[] getDisplayColorCalibration() {
-        if (!mUseColorAdjustment) {
-            return null;
-        }
-
         int[] arr = getDisplayColorCalibrationArray();
         if (arr == null || arr.length < CALIBRATION_MIN) {
             return null;
@@ -735,6 +455,7 @@ public class DisplayHardwareController extends LiveDisplayFeature {
                 return mDisplayColorCalibration.setCalibration(
                        new ArrayList<Integer>(Arrays.asList(rgb[0], rgb[1], rgb[2])));
             } catch (RemoteException e) {
+                return false;
             }
         }
 

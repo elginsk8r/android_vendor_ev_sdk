@@ -94,11 +94,11 @@ public class LiveDisplayService extends VendorService {
 
     private final List<LiveDisplayFeature> mFeatures = new ArrayList<LiveDisplayFeature>();
 
-    private AntiFlickerController mAFC;
     private ColorTemperatureController mCTC;
     private DisplayHardwareController mDHC;
     private OutdoorModeController mOMC;
     private PictureAdjustmentController mPAC;
+    private SimpleDisplayController mSDC;
 
     private LiveDisplayConfig mConfig;
 
@@ -161,8 +161,8 @@ public class LiveDisplayService extends VendorService {
         } else if (phase == PHASE_BOOT_COMPLETED) {
             mAwaitingNudge = getSunsetCounter() < 1;
 
-            mAFC = new AntiFlickerController(mContext, mHandler);
-            mFeatures.add(mAFC);
+            mSDC = new SimpleDisplayController(mContext, mHandler);
+            mFeatures.add(mSDC);
 
             mDHC = new DisplayHardwareController(mContext, mHandler);
             mFeatures.add(mDHC);
@@ -191,8 +191,8 @@ public class LiveDisplayService extends VendorService {
 
             mConfig = new LiveDisplayConfig(capabilities, defaultMode,
                     mCTC.getDefaultDayTemperature(), mCTC.getDefaultNightTemperature(),
-                    mOMC.getDefaultAutoOutdoorMode(), mDHC.getDefaultAutoContrast(),
-                    mDHC.getDefaultCABC(), mDHC.getDefaultColorEnhancement(),
+                    mOMC.getDefaultAutoOutdoorMode(), mSDC.getDefaultAutoContrast(),
+                    mSDC.getDefaultCABC(), mSDC.getDefaultColorEnhancement(),
                     mCTC.getColorTemperatureRange(), mCTC.getColorBalanceRange(),
                     mPAC.getHueRange(), mPAC.getSaturationRange(),
                     mPAC.getIntensityRange(), mPAC.getContrastRange(),
@@ -345,20 +345,10 @@ public class LiveDisplayService extends VendorService {
         @Override
         public boolean getFeature(int feature) {
             switch (feature) {
-            case FEATURE_CABC:
-                return mDHC.isCABCEnabled();
-            case FEATURE_AUTO_CONTRAST:
-                return mDHC.isAutoContrastEnabled();
-            case FEATURE_COLOR_ENHANCEMENT:
-                return mDHC.isColorEnhancementEnabled();
             case FEATURE_MANAGED_OUTDOOR_MODE:
                 return mOMC.isAutomaticOutdoorModeEnabled();
-            case FEATURE_ANTI_FLICKER:
-                return mAFC.isAntiFlickerEnabled();
-            case FEATURE_READING_ENHANCEMENT:
-                return mDHC.isReadingModeEnabled();
             default:
-                return false;
+                return mSDC.getFeature(feature);
             }
         }
 
@@ -367,20 +357,10 @@ public class LiveDisplayService extends VendorService {
             mContext.enforceCallingOrSelfPermission(
                     evervolv.platform.Manifest.permission.MANAGE_LIVEDISPLAY, null);
             switch (feature) {
-            case FEATURE_CABC:
-                return mDHC.setCABCEnabled(enable);
-            case FEATURE_AUTO_CONTRAST:
-                return mDHC.setAutoContrastEnabled(enable);
-            case FEATURE_COLOR_ENHANCEMENT:
-                return mDHC.setColorEnhancementEnabled(enable);
             case FEATURE_MANAGED_OUTDOOR_MODE:
                 return mOMC.setAutomaticOutdoorModeEnabled(enable);
-            case FEATURE_ANTI_FLICKER:
-                return mAFC.setAntiFlickerEnabled(enable);
-            case FEATURE_READING_ENHANCEMENT:
-                return mDHC.setReadingModeEnabled(enable);
             default:
-                return false;
+                return mSDC.setFeature(feature, enable);
             }
         }
 
