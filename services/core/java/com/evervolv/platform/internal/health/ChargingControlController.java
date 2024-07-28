@@ -535,7 +535,7 @@ public class ChargingControlController extends VendorHealthFeature {
         return false;
     }
 
-    private void updateChargeToggle() {
+    private void updateChargingStopReason() {
         if (mIsControlCancelledOnce) {
             mChargingStopReason = ChargingStopReason.NONE;
             return;
@@ -553,6 +553,10 @@ public class ChargingControlController extends VendorHealthFeature {
 
         updateChargingReasonBitmask(ChargingStopReason.REACH_LIMIT, shouldSetLimitFlag());
         updateChargingReasonBitmask(ChargingStopReason.WAITING, shouldSetWaitFlag());
+    }
+
+    private void updateChargeToggle() {
+        updateChargingStopReason();
 
         Log.i(TAG, "Current mChargingStopReason: " + mChargingStopReason);
         boolean isChargingEnabled = false;
@@ -688,9 +692,7 @@ public class ChargingControlController extends VendorHealthFeature {
     private class LineageHealthBatteryBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
-            if (chargePlug == 0 || chargePlug == -1) {
-                mIsControlCancelledOnce = false;
+            if (!mIsPowerConnected) {
                 return;
             }
 
