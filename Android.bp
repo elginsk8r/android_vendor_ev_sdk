@@ -85,7 +85,7 @@ java_library {
     name: "com.evervolv.platform",
     installable: true,
     sdk_version: "core_platform",
-    srcs: ["services/java/**/*.kt"],
+    srcs: ["services/java/**/*.java"],
     required: [
         "com.evervolv.platform.xml",
         "com.evervolv.platform-sysconfig.xml",
