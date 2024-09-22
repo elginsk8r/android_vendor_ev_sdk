@@ -34,6 +34,7 @@ import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 
+import evervolv.os.Build;
 import evervolv.provider.EVSettings;
 
 import java.io.File;
@@ -47,7 +48,7 @@ public class DatabaseHelper extends SQLiteOpenHelper{
     private static final boolean LOCAL_LOGV = false;
 
     private static final String DATABASE_NAME = "evervolv.db";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = Build.CURRENT_VERSION;
 
     public static class TableNames {
         public static final String TABLE_SYSTEM = "system";

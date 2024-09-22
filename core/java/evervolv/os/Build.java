@@ -35,6 +35,10 @@ public class Build {
         sdkMap.put(EVERVOLV_VERSION_CODES.BOHRIUM, "Bohrium");
         sdkMap.put(EVERVOLV_VERSION_CODES.COBALT, "Cobalt");
         sdkMap.put(EVERVOLV_VERSION_CODES.DUBNIUM, "Dubnium");
+        sdkMap.put(EVERVOLV_VERSION_CODES.EINSTEINIUM, "Einsteinium");
+        sdkMap.put(EVERVOLV_VERSION_CODES.FLEROVIUM, "Flerovium");
+        sdkMap.put(EVERVOLV_VERSION_CODES.GOLD, "Gold");
+        sdkMap.put(EVERVOLV_VERSION_CODES.HOLMIUM, "Holmium");
     }
 
     /** Various version strings. */
@@ -60,28 +64,20 @@ public class Build {
      *
      */
     public static class EVERVOLV_VERSION_CODES {
-        /**
-         * September 2018: The first version of the platform sdk for Evervolv
-         */
         public static final int ACTINIUM = 1;
-        /**
-         * September 2019: Version adds support for Q based features, TBD.
-         */
         public static final int BOHRIUM = 2;
-        /**
-         * March 2021: Version adds support for R based features, TBD.
-         */
         public static final int COBALT = 3;
-        /**
-         * October 2021: Version adds support for S based features, TBD.
-         */
         public static final int DUBNIUM = 4;
+        public static final int EINSTEINIUM = 5;
+        public static final int FLEROVIUM = 6;
+        public static final int GOLD = 7;
+        public static final int HOLMIUM = 8;
     }
 
     /**
      * Match the latest code available in {@link EVERVOLV_VERSION_CODES}
      */
-    public static final int CURRENT_VERSION = EVERVOLV_VERSION_CODES.DUBNIUM;
+    public static final int CURRENT_VERSION = EVERVOLV_VERSION_CODES.HOLMIUM;
 
     /**
      * Retrieve the name for the SDK int
